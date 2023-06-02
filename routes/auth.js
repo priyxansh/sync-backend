@@ -1,6 +1,7 @@
 const express = require("express");
 const { body, validationResult } = require("express-validator");
 const User = require("../models/User");
+const bcrypt = require("bcryptjs");
 
 const router = express.Router();
 
@@ -34,14 +35,24 @@ router.post(
         body("password").isLength({ min: 8 }),
     ],
     async (req, res) => {
+        // Getting the request validation result and returning errors if any
         const errors = validationResult(req);
+
         if (!errors.isEmpty()) {
             return res
                 .status(400)
                 .json({ success: false, errors: errors.array() });
         }
 
-        const result = await createUser(req.body);
+        // Generating salt and password hash
+        const salt = await bcrypt.genSalt(10);
+        const passwordHash = await bcrypt.hash(req.body.password, salt);
+
+        const result = await createUser({
+            name: req.body.name,
+            email: req.body.email,
+            password: passwordHash,
+        });
         res.json(result);
     }
 );
