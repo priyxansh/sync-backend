@@ -1,6 +1,7 @@
 const express = require("express");
 const { body, validationResult } = require("express-validator");
 const User = require("../models/User");
+const fetchUser = require("../middlewares/fetchUser");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const dotenv = require("dotenv");
@@ -131,4 +132,24 @@ router.post(
         });
     }
 );
+
+// Get logged-in user details using POST /getuser
+router.post("/getuser", fetchUser, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const user = await User.findById(userId).select("-password");
+
+        res.json({ success: true, user });
+    } catch (e) {
+        return res.status(400).json({
+            success: false,
+            error: {
+                code: e.code,
+                name: e.name,
+                message: e.message,
+            },
+        });
+    }
+});
+
 module.exports = router;
