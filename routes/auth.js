@@ -14,23 +14,8 @@ const router = express.Router();
 
 // Create a user using POST on /api/auth/user
 const createUser = async (userDetails) => {
-    try {
-        const user = await User.create(userDetails);
-        return {
-            success: true,
-            user,
-        };
-    } catch (e) {
-        return {
-            errors: [
-                {
-                    code: e.code,
-                    name: e.name,
-                    message: e.message,
-                },
-            ],
-        };
-    }
+    const user = await User.create(userDetails);
+    return user;
 };
 
 router.post(
@@ -50,24 +35,41 @@ router.post(
                 .json({ success: false, errors: errors.array() });
         }
 
-        // Generating salt and password hash
-        const salt = await bcrypt.genSalt(10);
-        const passwordHash = await bcrypt.hash(req.body.password, salt);
+        try {
+            // Generating salt and password hash
+            const salt = await bcrypt.genSalt(10);
+            const passwordHash = await bcrypt.hash(req.body.password, salt);
 
-        const result = await createUser({
-            name: req.body.name,
-            email: req.body.email,
-            password: passwordHash,
-        });
+            // Creating new user
+            const user = await createUser({
+                name: req.body.name,
+                email: req.body.email,
+                password: passwordHash,
+            });
 
-        // const data = {
-        //     user: {
-        //         id: result.user.id,
-        //     },
-        // };
+            // Generating JWT
+            const payload = {
+                user: {
+                    id: user.id,
+                },
+            };
 
-        // const authtoken = jwt.sign(data, JWT_SECRET);
-        res.json(result);
+            const authToken = jwt.sign(payload, JWT_SECRET);
+
+            res.status(200).json({
+                success: true,
+                authToken,
+            });
+        } catch (e) {
+            return res.status(400).json({
+                success: false,
+                error: {
+                    code: e.code,
+                    name: e.name,
+                    message: e.message,
+                },
+            });
+        }
     }
 );
 
@@ -114,7 +116,19 @@ router.post(
             });
         }
 
-        res.json({ success: true, user });
+        const payload = {
+            user: {
+                id: user.id,
+            },
+        };
+
+        // Generating JWT
+        const authToken = jwt.sign(payload, JWT_SECRET);
+
+        res.status(200).json({
+            success: true,
+            authToken,
+        });
     }
 );
 module.exports = router;
