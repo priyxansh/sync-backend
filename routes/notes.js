@@ -77,7 +77,6 @@ router.patch(
         }
 
         try {
-            // const { title, content, tag } = req.body;
             const { fields } = req.body;
 
             const noteID = req.params.id;
@@ -96,13 +95,15 @@ router.patch(
             const content = fields.find(
                 (element) => element.field === "content"
             );
-            if (!content || !content.value) {
-                return res.status(400).json({
-                    success: false,
-                    error: {
-                        message: "Note content must not be empty.",
-                    },
-                });
+            if (content) {
+                if (!content.value) {
+                    return res.status(400).json({
+                        success: false,
+                        error: {
+                            message: "Note content must not be empty.",
+                        },
+                    });
+                }
             }
 
             // Loop through fields array to update provided fields
@@ -112,7 +113,7 @@ router.patch(
 
             await note.save();
 
-            res.json(note);
+            res.json({ success: true, note });
         } catch (e) {
             return res.status(400).json({
                 success: false,
@@ -125,5 +126,34 @@ router.patch(
         }
     }
 );
+
+router.delete("/:id", fetchUser, async (req, res) => {
+    try {
+        const noteID = req.params.id;
+        const note = await Note.findOne({ _id: noteID, user: req.user.id });
+
+        if (!note) {
+            return res.status(400).json({
+                success: false,
+                error: {
+                    message: "Invalid note ID. Please try again.",
+                },
+            });
+        }
+
+        await note.deleteOne();
+
+        res.json({ success: true, note });
+    } catch (e) {
+        return res.status(400).json({
+            success: false,
+            error: {
+                code: e.code,
+                name: e.name,
+                message: e.message,
+            },
+        });
+    }
+});
 
 module.exports = router;
