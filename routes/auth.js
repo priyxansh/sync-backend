@@ -24,7 +24,10 @@ router.post(
     [
         body("name").isLength({ min: 3 }),
         body("email").isEmail(),
-        body("password").isLength({ min: 8 }),
+        body(
+            "password",
+            "Password must atleast be 8 characters long."
+        ).isLength({ min: 8 }),
     ],
     async (req, res) => {
         // Getting the request validation result and returning errors if any
@@ -133,7 +136,7 @@ router.post(
     }
 );
 
-// Get logged-in user details using POST /getuser
+// Get logged-in user details using POST /api/auth/getuser
 router.post("/getuser", fetchUser, async (req, res) => {
     try {
         const userId = req.user.id;
