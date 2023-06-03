@@ -53,9 +53,18 @@ router.post(
 );
 
 // Update an existing note using PATCH /api/notes/:id
+/*
+    Request body must contain an array of objects containing fields to update with their values
+    Example array: 
+    [{field: "title", value: "new title"}]
+*/
 router.patch(
     "/:id",
-    [body("content", "Note content must not be empty.").isLength({ min: 1 })],
+    [
+        body("fields", "Please provide atleast one field to update.").isLength({
+            min: 1,
+        }),
+    ],
     fetchUser,
     async (req, res) => {
         // Getting the request validation result and returning errors if any
@@ -68,7 +77,8 @@ router.patch(
         }
 
         try {
-            const { title, content, tag } = req.body;
+            // const { title, content, tag } = req.body;
+            const { fields } = req.body;
 
             const noteID = req.params.id;
             const note = await Note.findOne({ _id: noteID, user: req.user.id });
@@ -82,15 +92,23 @@ router.patch(
                 });
             }
 
-            if (title) {
-                note.title = title;
+            // Checking if content field is empty
+            const content = fields.find(
+                (element) => element.field === "content"
+            );
+            if (!content || !content.value) {
+                return res.status(400).json({
+                    success: false,
+                    error: {
+                        message: "Note content must not be empty.",
+                    },
+                });
             }
-            if (content) {
-                note.content = content;
-            }
-            if (tag) {
-                note.tag = tag;
-            }
+
+            // Loop through fields array to update provided fields
+            fields.forEach((element) => {
+                note[element.field] = element.value;
+            });
 
             await note.save();
 
