@@ -111,6 +111,9 @@ router.patch(
                 note[element.field] = element.value;
             });
 
+            // Update updatedAt field
+            note.updatedAt = Date.now();
+
             await note.save();
 
             res.json({ success: true, note });
