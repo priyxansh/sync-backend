@@ -1,10 +1,13 @@
 const mongoose = require("mongoose");
+const dotenv = require("dotenv");
 
-const mongoURI = "mongodb://localhost/notesdb";
+dotenv.config();
+
+const MONGO_URI = process.env.MONGO_URI;
 
 const connectDB = () => {
     mongoose
-        .connect(mongoURI)
+        .connect(MONGO_URI)
         .then(() => console.log("Connected to MongoDB successfully"))
         .catch((error) => console.log(error));
 };
