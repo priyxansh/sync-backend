@@ -2,11 +2,12 @@ const express = require("express");
 const { body, validationResult } = require("express-validator");
 const Note = require("../models/Note");
 const fetchUser = require("../middlewares/fetchUser");
+const checkUser = require("../middlewares/checkUser");
 
 const router = express.Router();
 
 // Get all notes using GET /api/notes
-router.get("/", fetchUser, async (req, res) => {
+router.get("/", fetchUser, checkUser, async (req, res) => {
     const notes = await Note.find({ user: req.user.id });
     res.json(notes);
 });
@@ -16,6 +17,7 @@ router.post(
     "/",
     [body("content", "Note content must not be empty.").isLength({ min: 1 })],
     fetchUser,
+    checkUser,
     async (req, res) => {
         // Getting the request validation result and returning errors if any
         const errors = validationResult(req);
@@ -66,6 +68,7 @@ router.patch(
         }),
     ],
     fetchUser,
+    checkUser,
     async (req, res) => {
         // Getting the request validation result and returning errors if any
         const errors = validationResult(req);
@@ -130,9 +133,10 @@ router.patch(
     }
 );
 
-router.delete("/:id", fetchUser, async (req, res) => {
+router.delete("/:id", fetchUser, checkUser, async (req, res) => {
     try {
-        const noteID = req.params.id;
+        const noteID = req.params.id;    console.log(user);
+
         const note = await Note.findOne({ _id: noteID, user: req.user.id });
 
         if (!note) {

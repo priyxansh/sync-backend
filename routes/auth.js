@@ -5,6 +5,7 @@ const fetchUser = require("../middlewares/fetchUser");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const dotenv = require("dotenv");
+const checkUser = require("../middlewares/checkUser");
 
 // Configuring dotenv for .env files
 dotenv.config();
@@ -136,8 +137,8 @@ router.post(
     }
 );
 
-// Get logged-in user details using POST /api/auth/getuser
-router.post("/getuser", fetchUser, async (req, res) => {
+// Get logged-in user details using GET /api/auth/getuser
+router.get("/getuser", fetchUser, checkUser, async (req, res) => {
     try {
         const userId = req.user.id;
         const user = await User.findById(userId).select("-password");
