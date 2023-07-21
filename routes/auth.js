@@ -23,32 +23,56 @@ const createUser = async (userDetails) => {
 router.post(
     "/user",
     [
-        body("name").isLength({ min: 3 }),
-        body("email").isEmail(),
-        body(
-            "password",
-            "Password must atleast be 8 characters long."
-        ).isLength({ min: 8 }),
+        body("name")
+            .isLength({ min: 3 })
+            .withMessage("Name must be at least 3 characters long."),
+        body("email").isEmail().withMessage("Invalid Email."),
+        body("password")
+            .isLength({ min: 8 })
+            .withMessage("Password must be at least 8 characters long."),
     ],
     async (req, res) => {
         // Getting the request validation result and returning errors if any
-        const errors = validationResult(req);
+        const errors = validationResult(req)
+            .array()
+            .map((error) => ({
+                name: "ValidationError",
+                type: error.type,
+                message: error.msg,
+                field: error.path,
+                location: error.location,
+            }));
 
-        if (!errors.isEmpty()) {
-            return res
-                .status(400)
-                .json({ success: false, errors: errors.array() });
+        if (errors.length !== 0) {
+            return res.status(400).json({ success: false, errors: errors });
+        }
+
+        const { name, email, password } = req.body;
+
+        // Checking if a user with provided email already exists
+        const user = await User.findOne({ email: email });
+
+        if (user) {
+            return res.status(409).json({
+                success: false,
+                errors: [
+                    {
+                        name: "ConflictError",
+                        message: "Email already in use.",
+                    },
+                ],
+            });
         }
 
         try {
             // Generating salt and password hash
             const salt = await bcrypt.genSalt(10);
-            const passwordHash = await bcrypt.hash(req.body.password, salt);
+            const passwordHash = await bcrypt.hash(password, salt);
 
             // Creating new user
             const user = await createUser({
-                name: req.body.name,
-                email: req.body.email,
+                name: name,
+                email: email,
                 password: passwordHash,
             });
 
@@ -61,18 +85,21 @@ router.post(
 
             const authToken = jwt.sign(payload, JWT_SECRET);
 
-            res.status(200).json({
+            res.status(201).json({
                 success: true,
-                authToken,
+                data: {
+                    authToken,
+                },
             });
         } catch (e) {
-            return res.status(400).json({
+            return res.status(500).json({
                 success: false,
-                error: {
-                    code: e.code,
-                    name: e.name,
-                    message: e.message,
-                },
+                errors: [
+                    {
+                        name: e.name,
+                        message: e.message,
+                    },
+                ],
             });
         }
     }
@@ -82,58 +109,84 @@ router.post(
 router.post(
     "/login",
     [
-        body("email").isEmail(),
-        body("password", "Please enter a password.").isLength({ min: 1 }),
+        body("email").isEmail().withMessage("Invalid Email."),
+        body("password").notEmpty().withMessage("No password provided."),
     ],
     async (req, res) => {
         // Getting the request validation result and returning errors if any
-        const errors = validationResult(req);
+        const errors = validationResult(req)
+            .array()
+            .map((error) => ({
+                name: "ValidationError",
+                type: error.type,
+                message: error.msg,
+                field: error.path,
+                location: error.location,
+            }));
 
-        if (!errors.isEmpty()) {
-            return res
-                .status(400)
-                .json({ success: false, errors: errors.array() });
+        if (errors.length !== 0) {
+            return res.status(400).json({ success: false, errors: errors });
         }
 
         const { email, password } = req.body;
 
+        // Checking if a user with provided email exists
         const user = await User.findOne({ email });
 
-        // Checking if a user with provided email exists
         if (!user) {
-            return res.status(400).json({
+            return res.status(404).json({
                 success: false,
-                error: {
-                    message: "Invalid login credentials. Please try again.",
-                },
+                errors: [
+                    {
+                        name: "AuthenticationError",
+                        message: "Email not registered.",
+                    },
+                ],
             });
         }
 
-        // Comparing provided password with password hash stored in the database
-        const result = await bcrypt.compare(password, user.password);
+        try {
+            // Comparing provided password with password hash stored in the database
+            const result = await bcrypt.compare(password, user.password);
 
-        if (!result) {
-            return res.status(400).json({
-                success: false,
-                error: {
-                    message: "Invalid login credentials. Please try again.",
+            if (!result) {
+                return res.status(401).json({
+                    success: false,
+                    errors: [
+                        {
+                            name: "AuthenticationError",
+                            message: "Invalid login credentials.",
+                        },
+                    ],
+                });
+            }
+
+            const payload = {
+                user: {
+                    id: user.id,
+                },
+            };
+
+            // Generating JWT
+            const authToken = jwt.sign(payload, JWT_SECRET);
+
+            res.status(200).json({
+                success: true,
+                data: {
+                    authToken,
                 },
             });
+        } catch (error) {
+            return res.status(500).json({
+                success: false,
+                errors: [
+                    {
+                        name: e.name,
+                        message: e.message,
+                    },
+                ],
+            });
         }
-
-        const payload = {
-            user: {
-                id: user.id,
-            },
-        };
-
-        // Generating JWT
-        const authToken = jwt.sign(payload, JWT_SECRET);
-
-        res.status(200).json({
-            success: true,
-            authToken,
-        });
     }
 );
 
@@ -143,15 +196,21 @@ router.get("/getuser", fetchUser, checkUser, async (req, res) => {
         const userId = req.user.id;
         const user = await User.findById(userId).select("-password");
 
-        res.json({ success: true, user });
-    } catch (e) {
-        return res.status(400).json({
-            success: false,
-            error: {
-                code: e.code,
-                name: e.name,
-                message: e.message,
+        res.json({
+            success: true,
+            data: {
+                user,
             },
+        });
+    } catch (e) {
+        return res.status(500).json({
+            success: false,
+            errors: [
+                {
+                    name: e.name,
+                    message: e.message,
+                },
+            ],
         });
     }
 });

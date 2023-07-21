@@ -12,9 +12,12 @@ const fetchUser = (req, res, next) => {
     if (!authToken) {
         return res.status(401).json({
             success: false,
-            error: {
-                message: "Invalid auth-token.",
-            },
+            errors: [
+                {
+                    name: "AuthenticationError",
+                    message: "No auth token provided.",
+                },
+            ],
         });
     }
 
@@ -25,11 +28,13 @@ const fetchUser = (req, res, next) => {
     } catch (e) {
         return res.status(401).json({
             success: false,
-            error: {
-                code: e.code,
-                name: e.name,
-                message: e.message,
-            },
+            errors: [
+                {
+                    code: e.code,
+                    name: e.name,
+                    message: e.message,
+                },
+            ],
         });
     }
 };

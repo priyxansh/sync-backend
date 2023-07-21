@@ -9,30 +9,42 @@ const router = express.Router();
 // Get all notes using GET /api/notes
 router.get("/", fetchUser, checkUser, async (req, res) => {
     const notes = await Note.find({ user: req.user.id });
-    res.json(notes);
+    res.status(200).json({
+        success: true,
+        data: {
+            notes,
+        },
+    });
 });
 
 // Create a new note using POST /api/notes
 router.post(
     "/",
-    [body("content", "Note content must not be empty.").isLength({ min: 1 })],
+    [body("content").notEmpty().withMessage("Note content must not be empty.")],
     fetchUser,
     checkUser,
     async (req, res) => {
         // Getting the request validation result and returning errors if any
-        const errors = validationResult(req);
+        const errors = validationResult(req)
+            .array()
+            .map((error) => ({
+                name: "ValidationError",
+                type: error.type,
+                message: error.msg,
+                field: error.path,
+                location: error.location,
+            }));
 
-        if (!errors.isEmpty()) {
-            return res
-                .status(400)
-                .json({ success: false, errors: errors.array() });
+        if (errors.length !== 0) {
+            return res.status(400).json({ success: false, errors: errors });
         }
+
+        let { title, content, tag } = req.body;
+
+        // Setting default value for the field tag
+        tag = tag || "General";
+
         try {
-            let { title, content, tag } = req.body;
-
-            // Setting default value for the field tag
-            tag = tag || "General";
-
             const note = await Note.create({
                 user: req.user.id,
                 title: title,
@@ -40,12 +52,16 @@ router.post(
                 tag: tag,
             });
 
-            res.json({ success: true, note });
+            res.status(201).json({
+                success: true,
+                data: {
+                    note,
+                },
+            });
         } catch (e) {
-            return res.status(400).json({
+            return res.status(500).json({
                 success: false,
                 error: {
-                    code: e.code,
                     name: e.name,
                     message: e.message,
                 },
@@ -60,6 +76,8 @@ router.post(
     Example array: 
     [{field: "title", value: "new title"}]
 */
+
+// Todo: use spread operator instead of this
 router.patch(
     "/:id",
     [
@@ -135,30 +153,39 @@ router.patch(
 
 router.delete("/:id", fetchUser, checkUser, async (req, res) => {
     try {
-        const noteID = req.params.id;    console.log(user);
+        const noteID = req.params.id;
 
         const note = await Note.findOne({ _id: noteID, user: req.user.id });
 
         if (!note) {
             return res.status(400).json({
                 success: false,
-                error: {
-                    message: "Invalid note ID. Please try again.",
-                },
+                errors: [
+                    {
+                        name: "ReferenceError",
+                        message: "Invalid note ID.",
+                    },
+                ],
             });
         }
 
         await note.deleteOne();
 
-        res.json({ success: true, note });
-    } catch (e) {
-        return res.status(400).json({
-            success: false,
-            error: {
-                code: e.code,
-                name: e.name,
-                message: e.message,
+        res.json({
+            success: true,
+            data: {
+                note,
             },
+        });
+    } catch (e) {
+        return res.status(500).json({
+            success: false,
+            errors: [
+                {
+                    name: e.name,
+                    message: e.message,
+                },
+            ],
         });
     }
 });
