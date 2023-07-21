@@ -12,11 +12,7 @@ connectDB()
         app.use("/api/notes", require("./routes/notes"));
         
         app.listen(port, () => {
-            console.log("Notes backend live at port", port);
+            console.log("Sync backend live at port", port);
         });
     })
     .catch(console.log);
-
-// app.listen(port, () => {
-//     console.log("Notes backend live at port", port);
-// });
