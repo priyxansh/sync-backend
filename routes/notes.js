@@ -71,85 +71,52 @@ router.post(
 );
 
 // Update an existing note using PATCH /api/notes/:id
-/*
-    Request body must contain an array of objects containing fields to update with their values
-    Example array: 
-    [{field: "title", value: "new title"}]
-*/
+router.patch("/:id", fetchUser, checkUser, async (req, res) => {
+    try {
+        const { title, content, tag, isPinned } = req.body;
 
-// Todo: use spread operator instead of this
-router.patch(
-    "/:id",
-    [
-        body("fields", "Please provide atleast one field to update.").isLength({
-            min: 1,
-        }),
-    ],
-    fetchUser,
-    checkUser,
-    async (req, res) => {
-        // Getting the request validation result and returning errors if any
-        const errors = validationResult(req);
+        const noteID = req.params.id;
+        let note = await Note.findOne({ _id: noteID, user: req.user.id });
 
-        if (!errors.isEmpty()) {
-            return res
-                .status(400)
-                .json({ success: false, errors: errors.array() });
-        }
-
-        try {
-            const { fields } = req.body;
-
-            const noteID = req.params.id;
-            const note = await Note.findOne({ _id: noteID, user: req.user.id });
-
-            if (!note) {
-                return res.status(400).json({
-                    success: false,
-                    error: {
-                        message: "Invalid note ID. Please try again.",
-                    },
-                });
-            }
-
-            // Checking if content field is empty
-            const content = fields.find(
-                (element) => element.field === "content"
-            );
-            if (content) {
-                if (!content.value) {
-                    return res.status(400).json({
-                        success: false,
-                        error: {
-                            message: "Note content must not be empty.",
-                        },
-                    });
-                }
-            }
-
-            // Loop through fields array to update provided fields
-            fields.forEach((element) => {
-                note[element.field] = element.value;
-            });
-
-            // Update updatedAt field
-            note.updatedAt = Date.now();
-
-            await note.save();
-
-            res.json({ success: true, note });
-        } catch (e) {
+        if (!note) {
             return res.status(400).json({
                 success: false,
-                error: {
-                    code: e.code,
+                errors: [
+                    {
+                        message: "Invalid note ID. Please try again.",
+                    },
+                ],
+            });
+        }
+
+        note.title = title || note.title;
+        note.content = content || note.content;
+        note.tag = tag || note.tag;
+        note.isPinned = isPinned || note.isPinned;
+
+        // Update updatedAt field
+        note.updatedAt = Date.now();
+
+        await note.save();
+
+        res.status(200).json({
+            success: true,
+            data: {
+                note,
+            },
+        });
+    } catch (e) {
+        return res.status(500).json({
+            success: false,
+            errors: [
+                {
                     name: e.name,
                     message: e.message,
                 },
-            });
-        }
+            ],
+        });
     }
-);
+});
 
 router.delete("/:id", fetchUser, checkUser, async (req, res) => {
     try {
